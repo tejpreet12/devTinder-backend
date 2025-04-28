@@ -1,39 +1,37 @@
 const express = require("express");
 const app = express();
+const connectDB = require("./config/database.js");
+const User = require("./models/user.js");
 const PORT = 7777;
 const HOSTNAME = "127.0.0.1";
 
-const { authMiddleware } = require("./middlewares/auth");
+app.post("/signup", async (req, res) => {
+  const userObj = {
+    name: "Joe",
+    lastName: "Root",
+    emailId: "joe@mail.com",
+    password: "Test@123",
+    age: 33,
+    gender: "Male",
+  };
 
-//Global Error Handler
-// app.use("/", (err,req,res,next) => {
-//       if(err){
-//         res.status(500).send("Some Error Occured");
-//       }
-// })
+  const user = new User(userObj);
 
-// Auth Middleware
-app.use("/admin", authMiddleware);
-
-
-app.use("/admin/getAllData", (req, res) => {
-  res.status(200).json({ data: ["All DATA"] });
-});
-
-app.use("/user", (req, res) => {
-  throw new Error();
-  // res.status(200).json({ data: ["USER DATA"] });
-});
-
-// Global Error Handler
-// The order of code matters here because we will not get error handled if we have global error
-// handler at top so it is recommended to error the global error handler as the last route
-app.use("/", (err,req,res,next) => {
-  if(err){
-    res.status(500).send("Some Error Occured");
+  try {
+    await user.save();
+    res.json({ message: `User Created` });
+  } catch (err) {
+    res.status(400).json({ message: `Unable to create user ${err.message}` });
   }
-})
-
-app.listen(PORT, () => {
-  console.log("Server start on port 7777");
 });
+
+connectDB()
+  .then(() => {
+    console.log("Database connected successfully");
+    app.listen(PORT, () => {
+      console.log("Server start on port 7777");
+    });
+  })
+  .catch((err) => {
+    console.log("err => ", err);
+  });
