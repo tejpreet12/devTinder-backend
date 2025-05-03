@@ -40,31 +40,15 @@ app.delete("/user", async (req, res) => {
   }
 });
 
-// app.patch("/user", async (req, res) => {
-//   const userId = req.body.userId;
-
-//   try {
-//     const updatedUser = await User.findByIdAndUpdate(
-//       { _id: userId },
-//       req.body,
-//       { returnDocument: "before" }
-//     );
-//     if (updatedUser) {
-//       res.json({ message: "User update successfully", updatedUser });
-//     } else {
-//       res.status(404).json({ message: `No user found` });
-//     }
-//   } catch (err) {
-//     res.status(400).json({ message: `Something went wrong : ${err.message}` });
-//   }
-// });
-
-// patch with emailID
 app.patch("/user", async (req, res) => {
-  const emailId = req.body.emailId;
+  const userId = req.body.userId;
 
   try {
-    const updatedUser = await User.findOneAndUpdate({ emailId }, req.body);
+    const updatedUser = await User.findByIdAndUpdate(
+      { _id: userId },
+      req.body,
+      { returnDocument: "before", runValidators: true }
+    );
     if (updatedUser) {
       res.json({ message: "User update successfully", updatedUser });
     } else {
@@ -74,6 +58,22 @@ app.patch("/user", async (req, res) => {
     res.status(400).json({ message: `Something went wrong : ${err.message}` });
   }
 });
+
+// patch with emailID
+// app.patch("/user", async (req, res) => {
+//   const emailId = req.body.emailId;
+
+//   try {
+//     const updatedUser = await User.findOneAndUpdate({ emailId }, req.body);
+//     if (updatedUser) {
+//       res.json({ message: "User update successfully", updatedUser });
+//     } else {
+//       res.status(404).json({ message: `No user found` });
+//     }
+//   } catch (err) {
+//     res.status(400).json({ message: `Something went wrong : ${err.message}` });
+//   }
+// });
 
 // /feed for all users
 
