@@ -40,10 +40,30 @@ app.delete("/user", async (req, res) => {
   }
 });
 
-app.patch("/user", async (req, res) => {
-  const userId = req.body.userId;
+app.patch("/user/:userId", async (req, res) => {
+  const userId = req.params?.userId;
 
   try {
+    const ALLOWED_TYPES = [
+      "firstName",
+      "lastName",
+      "password",
+      "age",
+      "gender",
+      "skills",
+    ];
+    const isUpdationAllowed = Object.keys(req.body).every((val) =>
+      ALLOWED_TYPES.includes(val)
+    );
+
+    if (!isUpdationAllowed) {
+      throw new Error("Update not allowed");
+    }
+
+    if (req.body?.skills?.length > 10) {
+      throw new Error("Only 10 Skills are allowed.");
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       { _id: userId },
       req.body,
@@ -108,8 +128,13 @@ app.get("/user/:ID", async (req, res) => {
 });
 
 app.post("/signup", async (req, res) => {
-  const user = new User(req.body);
   try {
+    if (req.body?.skills?.length > 10) {
+      throw new Error("Only 10 Skills are allowed.");
+    }
+
+    const user = new User(req.body);
+
     await user.save();
     res.json({ message: `New User Created` });
   } catch (err) {
