@@ -2,8 +2,11 @@ const express = require("express");
 const app = express();
 const connectDB = require("./config/database.js");
 const User = require("./models/user.js");
+const { validateSignUpData } = require("./utils/validation.js");
 const PORT = 7777;
 const HOSTNAME = "127.0.0.1";
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 app.use(express.json());
 
@@ -129,11 +132,25 @@ app.get("/user/:ID", async (req, res) => {
 
 app.post("/signup", async (req, res) => {
   try {
+
+    // valdidation of user
+    validateSignUpData(req);
+
+    const { firstName, lastName, emailId, password } = req.body;
+
+    //encrypt the password
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
     if (req.body?.skills?.length > 10) {
       throw new Error("Only 10 Skills are allowed.");
     }
 
-    const user = new User(req.body);
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: hashedPassword,
+    });
 
     await user.save();
     res.json({ message: `New User Created` });
@@ -141,6 +158,33 @@ app.post("/signup", async (req, res) => {
     res.status(400).json({ message: `Unable to create user ${err.message}` });
   }
 });
+
+app.post("/login", async (req, res) => {
+
+  try {
+    const { emailId, password } = req.body;
+
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      throw new Error("Invaild Credentials");
+    }
+    console.log(password,"password");
+    console.log(user.password,"user.password");
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      throw new Error("Invaild Credentials");
+    } else {
+      res.json({ message: `User logged in successfully.` })
+    }
+
+  } catch (err) {
+    res.status(400).json({ message: `Unable to login user ${err.message}` });
+  }
+
+})
 
 connectDB()
   .then(() => {
