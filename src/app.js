@@ -3,12 +3,19 @@ const app = express();
 const connectDB = require("./config/database.js");
 const User = require("./models/user.js");
 const { validateSignUpData } = require("./utils/validation.js");
+const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+var jwt = require("jsonwebtoken");
+const { authMiddleware } = require("./middlewares/auth.js");
+
 const PORT = 7777;
 const HOSTNAME = "127.0.0.1";
-const bcrypt = require('bcrypt');
 const saltRounds = 10;
+const SECRET_JWT_KEY =
+  "ad6dbf08b6fc80bf738d4464890f05d3548a089be47d26405cb8509aedfffb73";
 
 app.use(express.json());
+app.use(cookieParser());
 
 // /user for single user with emailId
 
@@ -132,7 +139,6 @@ app.get("/user/:ID", async (req, res) => {
 
 app.post("/signup", async (req, res) => {
   try {
-
     // valdidation of user
     validateSignUpData(req);
 
@@ -160,7 +166,6 @@ app.post("/signup", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-
   try {
     const { emailId, password } = req.body;
 
@@ -169,22 +174,41 @@ app.post("/login", async (req, res) => {
     if (!user) {
       throw new Error("Invaild Credentials");
     }
-    console.log(password,"password");
-    console.log(user.password,"user.password");
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await user.validatePassword(password);
+    console.log(isValidPassword,"VALID PASSWORD")
 
     if (!isValidPassword) {
       throw new Error("Invaild Credentials");
     } else {
-      res.json({ message: `User logged in successfully.` })
-    }
+      const token = await user.getJWT();
+      console.log(token, "TOKEN");
 
+      res.cookie("token", token);
+      res.json({ message: `User logged in successfully.` });
+    }
   } catch (err) {
     res.status(400).json({ message: `Unable to login user ${err.message}` });
   }
+});
 
-})
+app.get("/profile", authMiddleware, async (req, res) => {
+  try {
+    res.json({ user: req.user, status: 200 });
+  } catch (err) {
+    res.status(400).json({ message: `Error: ${err.message}` });
+  }
+});
+
+app.post("/sendConnectionRequest", authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+
+    res.send(`${user.firstName} sent a Connection Request.`);
+  } catch (err) {
+    res.status(400).json({ message: `Error: ${err.message}` });
+  }
+});
 
 connectDB()
   .then(() => {
