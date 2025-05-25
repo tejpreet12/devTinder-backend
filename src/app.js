@@ -1,15 +1,16 @@
 const express = require("express");
 const app = express();
 const connectDB = require("./config/database.js");
-const User = require("./models/user.js");
-const { validateSignUpData } = require("./utils/validation.js");
-const bcrypt = require("bcrypt");
+
 const cookieParser = require("cookie-parser");
-var jwt = require("jsonwebtoken");
-const { authMiddleware } = require("./middlewares/auth.js");
+
+const authRouter = require("./routes/auth.js");
+const profileRouter = require("./routes/profile.js");
+const requestRouter = require("./routes/request.js");
 
 const PORT = 7777;
 const HOSTNAME = "127.0.0.1";
+
 const saltRounds = 10;
 const SECRET_JWT_KEY =
   "ad6dbf08b6fc80bf738d4464890f05d3548a089be47d26405cb8509aedfffb73";
@@ -17,198 +18,10 @@ const SECRET_JWT_KEY =
 app.use(express.json());
 app.use(cookieParser());
 
-// /user for single user with emailId
-
-app.get("/user", async (req, res) => {
-  const email = req.body?.emailId;
-
-  try {
-    const user = await User.findOne({ emailId: email });
-
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: `No user found` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Something went wrong : ${err.message}` });
-  }
-});
-
-app.delete("/user", async (req, res) => {
-  const userId = req.body.userId;
-
-  try {
-    const deletedUser = await User.findByIdAndDelete(userId);
-    if (deletedUser) {
-      res.json({ message: "User delete successfully" });
-    } else {
-      res.status(404).json({ message: `No user found` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Something went wrong : ${err.message}` });
-  }
-});
-
-app.patch("/user/:userId", async (req, res) => {
-  const userId = req.params?.userId;
-
-  try {
-    const ALLOWED_TYPES = [
-      "firstName",
-      "lastName",
-      "password",
-      "age",
-      "gender",
-      "skills",
-    ];
-    const isUpdationAllowed = Object.keys(req.body).every((val) =>
-      ALLOWED_TYPES.includes(val)
-    );
-
-    if (!isUpdationAllowed) {
-      throw new Error("Update not allowed");
-    }
-
-    if (req.body?.skills?.length > 10) {
-      throw new Error("Only 10 Skills are allowed.");
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      { _id: userId },
-      req.body,
-      { returnDocument: "before", runValidators: true }
-    );
-    if (updatedUser) {
-      res.json({ message: "User update successfully", updatedUser });
-    } else {
-      res.status(404).json({ message: `No user found` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Something went wrong : ${err.message}` });
-  }
-});
-
-// patch with emailID
-// app.patch("/user", async (req, res) => {
-//   const emailId = req.body.emailId;
-
-//   try {
-//     const updatedUser = await User.findOneAndUpdate({ emailId }, req.body);
-//     if (updatedUser) {
-//       res.json({ message: "User update successfully", updatedUser });
-//     } else {
-//       res.status(404).json({ message: `No user found` });
-//     }
-//   } catch (err) {
-//     res.status(400).json({ message: `Something went wrong : ${err.message}` });
-//   }
-// });
-
-// /feed for all users
-
-app.get("/feed", async (req, res) => {
-  try {
-    const user = await User.find();
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: `No user found` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Something went wrong : ${err.message}` });
-  }
-});
-
-// HW findByID
-
-app.get("/user/:ID", async (req, res) => {
-  const userId = req.params.ID;
-
-  try {
-    const user = await User.findById(userId);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: `No user found` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Something went wrong : ${err.message}` });
-  }
-});
-
-app.post("/signup", async (req, res) => {
-  try {
-    // valdidation of user
-    validateSignUpData(req);
-
-    const { firstName, lastName, emailId, password } = req.body;
-
-    //encrypt the password
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    if (req.body?.skills?.length > 10) {
-      throw new Error("Only 10 Skills are allowed.");
-    }
-
-    const user = new User({
-      firstName,
-      lastName,
-      emailId,
-      password: hashedPassword,
-    });
-
-    await user.save();
-    res.json({ message: `New User Created` });
-  } catch (err) {
-    res.status(400).json({ message: `Unable to create user ${err.message}` });
-  }
-});
-
-app.post("/login", async (req, res) => {
-  try {
-    const { emailId, password } = req.body;
-
-    const user = await User.findOne({ emailId: emailId });
-
-    if (!user) {
-      throw new Error("Invaild Credentials");
-    }
-
-    const isValidPassword = await user.validatePassword(password);
-    console.log(isValidPassword,"VALID PASSWORD")
-
-    if (!isValidPassword) {
-      throw new Error("Invaild Credentials");
-    } else {
-      const token = await user.getJWT();
-      console.log(token, "TOKEN");
-
-      res.cookie("token", token);
-      res.json({ message: `User logged in successfully.` });
-    }
-  } catch (err) {
-    res.status(400).json({ message: `Unable to login user ${err.message}` });
-  }
-});
-
-app.get("/profile", authMiddleware, async (req, res) => {
-  try {
-    res.json({ user: req.user, status: 200 });
-  } catch (err) {
-    res.status(400).json({ message: `Error: ${err.message}` });
-  }
-});
-
-app.post("/sendConnectionRequest", authMiddleware, async (req, res) => {
-  try {
-    const user = req.user;
-
-    res.send(`${user.firstName} sent a Connection Request.`);
-  } catch (err) {
-    res.status(400).json({ message: `Error: ${err.message}` });
-  }
-});
+//Routes
+app.use("/", authRouter);
+app.use("/", profileRouter);
+app.use("/", requestRouter);
 
 connectDB()
   .then(() => {
